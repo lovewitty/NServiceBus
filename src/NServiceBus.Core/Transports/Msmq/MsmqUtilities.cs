@@ -84,20 +84,69 @@ namespace NServiceBus
             return message.CorrelationId.Replace("\\0", string.Empty);
         }
 
-        static Dictionary<string, string> DeserializeMessageHeaders(Message m)
+        public static Dictionary<string, string> DeserializeMessageHeaders(Message m)
         {
+            var bytes = m.Extension;
             var result = new Dictionary<string, string>();
 
-            if (m.Extension.Length == 0)
+            if (bytes.Length == 0)
             {
                 return result;
             }
 
             //This is to make us compatible with v3 messages that are affected by this bug:
             //http://stackoverflow.com/questions/3779690/xml-serialization-appending-the-0-backslash-0-or-null-character
-            var extension = Encoding.UTF8.GetString(m.Extension).TrimEnd('\0');
+            var extension = Encoding.UTF8.GetString(bytes).TrimEnd('\0');
             object o;
             using (var stream = new StringReader(extension))
+            {
+                using (var reader = XmlReader.Create(stream, new XmlReaderSettings
+                {
+                    CheckCharacters = false
+                }))
+                {
+                    o = headerSerializer.Deserialize(reader);
+                }
+            }
+
+            foreach (var pair in (List<HeaderInfo>) o)
+            {
+                if (pair.Key != null)
+                {
+                    result.Add(pair.Key, pair.Value);
+                }
+            }
+
+            return result;
+        }
+
+        public static unsafe Dictionary<string, string> DeserializeMessageHeadersFast(Message m)
+        {
+            var bytes = m.Extension;
+            var result = new Dictionary<string, string>();
+
+            var byteCount = bytes.Length;
+
+            if (byteCount == 0)
+            {
+                return result;
+            }
+
+            var encoding = Encoding.UTF8;
+            var charCount = encoding.GetCharCount(bytes, 0, byteCount);
+
+            char* chars = stackalloc char[charCount];
+            fixed(byte* b = bytes)
+            {
+                encoding.GetChars(b, byteCount, chars, charCount);
+            }
+
+            //This is to make us compatible with v3 messages that are affected by this bug:
+            //http://stackoverflow.com/questions/3779690/xml-serialization-appending-the-0-backslash-0-or-null-character
+            TextUtils.TrimEnd(chars, ref charCount, '\0');
+
+            object o;
+            using (var stream = new TextUtils.UnsafeReadBlockTextReader(chars, charCount))
             {
                 using (var reader = XmlReader.Create(stream, new XmlReaderSettings
                 {
