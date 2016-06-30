@@ -28,7 +28,7 @@
             var incomingMessage = new IncomingMessage("messageId", new Dictionary<string, string>(), new MemoryStream(originalBody));
             incomingMessage.Body = Encoding.UTF8.GetBytes("updated message body");
 
-            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, new ContextBag());
+            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, 0, new ContextBag());
 
             var outgoingMessage = dispatcher.TransportOperations.UnicastTransportOperations.Single();
             Assert.That(outgoingMessage.Message.Body, Is.EqualTo(originalBody));
@@ -41,7 +41,7 @@
             var delayedRetryExecutor = new DelayedRetryExecutor(EndpointInputQueue, dispatcher);
             var incomingMessage = new IncomingMessage("messageId", new Dictionary<string, string>(), Stream.Null);
 
-            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, context);
+            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, 0, context);
 
             Assert.That(dispatcher.ContextBag, Is.SameAs(context));
         }
@@ -53,7 +53,7 @@
             var delay = TimeSpan.FromSeconds(42);
             var incomingMessage = new IncomingMessage("messageId", new Dictionary<string, string>(), Stream.Null);
 
-            await delayedRetryExecutor.Retry(incomingMessage, delay, new ContextBag());
+            await delayedRetryExecutor.Retry(incomingMessage, delay, 0, new ContextBag());
 
             var outgoingMessage = dispatcher.TransportOperations.UnicastTransportOperations.Single();
             Assert.That(outgoingMessage.Destination, Is.EqualTo(EndpointInputQueue));
@@ -69,7 +69,7 @@
             var delay = TimeSpan.FromSeconds(42);
             var incomingMessage = new IncomingMessage("messageId", new Dictionary<string, string>(), Stream.Null);
 
-            await delayedRetryExecutor.Retry(incomingMessage, delay, new ContextBag());
+            await delayedRetryExecutor.Retry(incomingMessage, delay, 0, new ContextBag());
 
             var outgoingMessage = dispatcher.TransportOperations.UnicastTransportOperations.Single();
             var deliveryConstraint = outgoingMessage.DeliveryConstraints.OfType<DelayDeliveryWith>().SingleOrDefault();
@@ -93,10 +93,10 @@
             var incomingMessage = new IncomingMessage("messageId", headers, Stream.Null);
 
             var now = DateTime.UtcNow;
-            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, new ContextBag());
+            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, 4, new ContextBag());
 
             var outgoingMessageHeaders = dispatcher.TransportOperations.UnicastTransportOperations.Single().Message.Headers;
-            Assert.That(outgoingMessageHeaders[Headers.Retries], Is.EqualTo("3"));
+            Assert.That(outgoingMessageHeaders[Headers.Retries], Is.EqualTo("5"));
             Assert.That(incomingMessage.Headers[Headers.Retries], Is.EqualTo("2"));
             var utcDateTime = DateTimeExtensions.ToUtcDateTime(outgoingMessageHeaders[Headers.RetriesTimestamp]);
             // the serialization removes precision which may lead to now being greater than the deserialized header value
@@ -111,10 +111,10 @@
             var delayedRetryExecutor = new DelayedRetryExecutor(EndpointInputQueue, dispatcher);
             var incomingMessage = new IncomingMessage("messageId", new Dictionary<string, string>(), Stream.Null);
 
-            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, new ContextBag());
+            await delayedRetryExecutor.Retry(incomingMessage, TimeSpan.Zero, 2, new ContextBag());
 
             var outgoingMessageHeaders = dispatcher.TransportOperations.UnicastTransportOperations.Single().Message.Headers;
-            Assert.That(outgoingMessageHeaders[Headers.Retries], Is.EqualTo("1"));
+            Assert.That(outgoingMessageHeaders[Headers.Retries], Is.EqualTo("3"));
             Assert.That(incomingMessage.Headers.ContainsKey(Headers.Retries), Is.False);
             Assert.That(outgoingMessageHeaders.ContainsKey(Headers.RetriesTimestamp), Is.True);
             Assert.That(incomingMessage.Headers.ContainsKey(Headers.RetriesTimestamp), Is.False);

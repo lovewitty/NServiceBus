@@ -2,7 +2,6 @@ namespace NServiceBus
 {
     using System;
     using System.Collections.Generic;
-    using System.IO;
     using System.Messaging;
     using System.Threading;
     using System.Threading.Tasks;
@@ -14,7 +13,7 @@ namespace NServiceBus
     {
         public abstract Task ReceiveMessage();
 
-        public void Init(MessageQueue inputQueue, MessageQueue errorQueue, Func<MessageContext, Task> onMessage, Func<ErrorContext, Task<bool>> onError, Func<string, Exception, Task> onCriticalError)
+        public void Init(MessageQueue inputQueue, MessageQueue errorQueue, Func<MessageContext, Task> onMessage, Func<ErrorContext, Task<bool>> onError, Func<Exception, string, Task> onCriticalError)
         {
             InputQueue = inputQueue;
             ErrorQueue = errorQueue;
@@ -99,40 +98,55 @@ namespace NServiceBus
             ErrorQueue.Send(message, transactionType);
         }
 
-        protected async Task<bool> TryProcessMessage(Message message, Dictionary<string, string> headers, Stream bodyStream, TransportTransaction transaction)
+        protected async Task<bool> TryProcessMessage(Message message, Dictionary<string, string> headers, TransportTransaction transaction)
         {
             using (var tokenSource = new CancellationTokenSource())
             {
-                var messageContext = new MessageContext(message.Id, headers, bodyStream, transaction, tokenSource, new ContextBag());
+                using (var bodyStream = message.BodyStream)
+                {
+                    var pushContext = new MessageContext(message.Id, headers, bodyStream, transaction, tokenSource, new ContextBag());
 
-                await OnMessage(messageContext).ConfigureAwait(false);
+                    await OnMessage(pushContext).ConfigureAwait(false);
+                }
 
                 return tokenSource.Token.IsCancellationRequested;
             }
         }
 
-        protected async Task<bool> HandleError(Message message, Dictionary<string, string> headers, Exception exception, int numberOfDeliveryAttempts, TransportTransaction transportTransaction)
+
+        protected async Task<bool> HandleError(Message message, Dictionary<string, string> headers, Exception exception, TransportTransaction transportTransaction, int processingAttempts)
         {
             try
             {
-                return await OnError(new ErrorContext(message.Id, message.BodyStream, exception, headers, numberOfDeliveryAttempts, transportTransaction)).ConfigureAwait(false);
+                var dispatchContext = new ContextBag();
+                dispatchContext.Set(transportTransaction);
+
+                var incomingMessage = new IncomingMessage(message.Id, headers, message.BodyStream);
+
+                var errorContext = new ErrorContext
+                {
+                    Exception = exception,
+                    Message = incomingMessage,
+                    DispatchContext = dispatchContext,
+                    ImmediateProcessingAttempts = processingAttempts
+                };
+
+                return await OnError(errorContext).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                await OnCriticalError($"Failed to execute reverability actions for message `{message.Id}`", ex).ConfigureAwait(false);
+                await OnCriticalError(ex, $"Failed to execute reverability actions for message `{message.Id}`").ConfigureAwait(false);
 
                 //best thing we can do is roll the message back if possible
                 return true;
             }
         }
 
-        protected bool IsQueuesTransactional => ErrorQueue.Transactional;
-
         MessageQueue InputQueue;
         MessageQueue ErrorQueue;
         Func<MessageContext, Task> OnMessage;
         Func<ErrorContext, Task<bool>> OnError;
-        Func<string, Exception, Task> OnCriticalError;
+        Func<Exception, string, Task> OnCriticalError;
 
         static ILog Logger = LogManager.GetLogger<ReceiveStrategy>();
     }

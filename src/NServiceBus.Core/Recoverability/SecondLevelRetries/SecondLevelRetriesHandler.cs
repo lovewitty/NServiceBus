@@ -56,7 +56,7 @@
 
                 failureInfoStorage.ClearFailureInfoForMessage(message.MessageId);
 
-                await delayedRetryExecutor.Retry(context.Message, delay, context.Extensions).ConfigureAwait(false);
+                await delayedRetryExecutor.Retry(context.Message, delay, currentRetry, context.Extensions).ConfigureAwait(false);
 
                 await context.RaiseNotification(new MessageToBeRetried(currentRetry, delay, context.Message, failureInfo.Exception)).ConfigureAwait(false);
 

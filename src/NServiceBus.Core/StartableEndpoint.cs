@@ -7,6 +7,7 @@ namespace NServiceBus
     using System.Threading.Tasks;
     using Config;
     using ConsistencyGuarantees;
+    using Extensibility;
     using Features;
     using Logging;
     using ObjectBuilder;
@@ -176,9 +177,23 @@ namespace NServiceBus
             }
         }
 
-        Task<bool> InvokeError(IBuilder rootBuilder, ErrorContext context)
+        Task<bool> InvokeError(IBuilder rootBuilder, ErrorContext errorContext)
         {
-            return Task.FromResult(false);
+            /*
+            var message = new IncomingMessage(messageContext.MessageId, messageContext.Headers, messageContext.BodyStream);
+
+            var dispatchContext = new ContextBag();
+            dispatchContext.Set(messageContext.TransportTransaction);
+
+            var errorContext = new ErrorContext
+            {
+                Exception = exception,
+                Message = message,
+                DispatchContext = dispatchContext,
+                NumberOfImmediateProcessingAttempts = processingAttempts
+            };
+            */
+            return builder.Build<RecoverabilityExecutor>().Invoke(errorContext, eventAggregator);
         }
 
 

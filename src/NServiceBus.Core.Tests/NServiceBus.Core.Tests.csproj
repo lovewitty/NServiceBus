@@ -154,7 +154,7 @@
     <Compile Include="Pipeline\Outgoing\OutgoingSendContextTests.cs" />
     <Compile Include="Pipeline\RegisterStepTests.cs" />
     <Compile Include="Recoverability\FailureInfoStorageTests.cs" />
-    <Compile Include="Recoverability\MoveToErrorsActionExecutorTests.cs" />
+    <Compile Include="Recoverability\MoveToErrorsExecutorTests.cs" />
     <Compile Include="Recoverability\SecondLevelRetries\DelayedRetryExecutorTests.cs" />
     <Compile Include="Recoverability\RecoverabilityBehaviorTests.cs" />
     <Compile Include="Routing\ApplyReplyToAddressBehaviorTests.cs" />

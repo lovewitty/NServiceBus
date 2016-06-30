@@ -107,7 +107,7 @@
             var errorHandler = new MoveFaultsToErrorQueueHandler(
                 new FakeCriticalError(),
                 failureStorage,
-                new MoveToErrorsActionExecutor(messageDispatcher, ErrorQueueAddress, new Dictionary<string, string>()));
+                new MoveToErrorsExecutor(messageDispatcher, ErrorQueueAddress, new Dictionary<string, string>()));
 
             return new RecoverabilityBehavior(flrHandler, slrHandler, errorHandler, transactionsEnabled);
         }

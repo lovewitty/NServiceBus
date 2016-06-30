@@ -95,7 +95,7 @@ namespace NServiceBus.Core.Tests
             var behavior = new MoveFaultsToErrorQueueHandler(
                 criticalError,
                 new FailureInfoStorage(10),
-                new MoveToErrorsActionExecutor(dispatcher, "error", staticFaultMetadata ?? new Dictionary<string, string>()));
+                new MoveToErrorsExecutor(dispatcher, "error", staticFaultMetadata ?? new Dictionary<string, string>()));
 
             return behavior;
         }

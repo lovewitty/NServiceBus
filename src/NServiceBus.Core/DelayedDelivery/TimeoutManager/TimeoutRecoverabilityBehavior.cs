@@ -8,13 +8,13 @@ namespace NServiceBus
 
     class TimeoutRecoverabilityBehavior
     {
-        public TimeoutRecoverabilityBehavior(string errorQueueAddress, string localAddress, CriticalError criticalError, TimeoutFailureInfoStorage failureInfoStorage, MoveToErrorsActionExecutor moveToErrorsActionExecutor)
+        public TimeoutRecoverabilityBehavior(string errorQueueAddress, string localAddress, CriticalError criticalError, TimeoutFailureInfoStorage failureInfoStorage, MoveToErrorsExecutor moveToErrorsExecutor)
         {
             this.localAddress = localAddress;
             this.errorQueueAddress = errorQueueAddress;
             this.criticalError = criticalError;
             this.failureInfoStorage = failureInfoStorage;
-            this.moveToErrorsActionExecutor = moveToErrorsActionExecutor;
+            this.moveToErrorsExecutor = moveToErrorsExecutor;
         }
 
         public async Task Invoke(MessageContext context, Func<Task> next)
@@ -58,7 +58,7 @@ namespace NServiceBus
                 Logger.Error($"Moving timeout message '{context.MessageId}' from '{localAddress}' to '{errorQueueAddress}' because processing failed due to an exception:", failureInfo.Exception);
 
                 var message = new IncomingMessage(context.MessageId, context.Headers, context.BodyStream);
-                await moveToErrorsActionExecutor.MoveToErrorQueue(message, failureInfo.Exception, context.Context).ConfigureAwait(false);
+                await moveToErrorsExecutor.MoveToErrorQueue(message, failureInfo.Exception, context.Context).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -70,7 +70,7 @@ namespace NServiceBus
         CriticalError criticalError;
         TimeoutFailureInfoStorage failureInfoStorage;
         string errorQueueAddress;
-        MoveToErrorsActionExecutor moveToErrorsActionExecutor;
+        MoveToErrorsExecutor moveToErrorsExecutor;
 
         string localAddress;
 

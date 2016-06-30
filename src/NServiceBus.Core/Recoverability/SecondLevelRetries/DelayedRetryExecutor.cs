@@ -18,14 +18,14 @@
             this.endpointInputQueue = endpointInputQueue;
         }
 
-        public Task Retry(IncomingMessage message, TimeSpan delay, ContextBag context)
+        public Task Retry(IncomingMessage message, TimeSpan delay, int currentRetryAttempt, ContextBag dispatchContext)
         {
+            //TODO: this needs to be removed
             message.RevertToOriginalBodyIfNeeded();
 
             var outgoingMessage = new OutgoingMessage(message.MessageId, new Dictionary<string, string>(message.Headers), message.Body);
 
-            var previousRetries = GetNumberOfRetries(message.Headers);
-            outgoingMessage.Headers[Headers.Retries] = (previousRetries + 1).ToString();
+            outgoingMessage.Headers[Headers.Retries] = (currentRetryAttempt + 1).ToString();
             outgoingMessage.Headers[Headers.RetriesTimestamp] = DateTimeExtensions.ToWireFormattedString(DateTime.UtcNow);
 
             UnicastAddressTag messageDestination;
@@ -48,10 +48,10 @@
             }
 
             var transportOperations = new TransportOperations(new TransportOperation(outgoingMessage, messageDestination, deliveryConstraints: deliveryConstraints));
-            return dispatcher.Dispatch(transportOperations, context);
+            return dispatcher.Dispatch(transportOperations, dispatchContext);
         }
 
-        static int GetNumberOfRetries(Dictionary<string, string> headers)
+        public static int GetNumberOfRetries(Dictionary<string, string> headers)
         {
             string value;
             if (headers.TryGetValue(Headers.Retries, out value))

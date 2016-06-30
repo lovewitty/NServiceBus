@@ -8,11 +8,11 @@
 
     class MoveFaultsToErrorQueueHandler
     {
-        public MoveFaultsToErrorQueueHandler(CriticalError criticalError, FailureInfoStorage failureInfoStorage, MoveToErrorsActionExecutor moveToErrorsActionExecutor)
+        public MoveFaultsToErrorQueueHandler(CriticalError criticalError, FailureInfoStorage failureInfoStorage, MoveToErrorsExecutor moveToErrorsExecutor)
         {
             this.criticalError = criticalError;
             this.failureInfoStorage = failureInfoStorage;
-            this.moveToErrorsActionExecutor = moveToErrorsActionExecutor;
+            this.moveToErrorsExecutor = moveToErrorsExecutor;
         }
 
         public void MarkForFutureHandling(ITransportReceiveContext context, Exception ex)
@@ -47,7 +47,7 @@
 
                 failureInfoStorage.ClearFailureInfoForMessage(message.MessageId);
 
-                await moveToErrorsActionExecutor.MoveToErrorQueue(message, exception, context.Extensions).ConfigureAwait(false);
+                await moveToErrorsExecutor.MoveToErrorQueue(message, exception, context.Extensions).ConfigureAwait(false);
 
                 await context.RaiseNotification(new MessageFaulted(message, exception)).ConfigureAwait(false);
             }
@@ -61,7 +61,7 @@
 
         CriticalError criticalError;
         FailureInfoStorage failureInfoStorage;
-        MoveToErrorsActionExecutor moveToErrorsActionExecutor;
+        MoveToErrorsExecutor moveToErrorsExecutor;
         static ILog Logger = LogManager.GetLogger<MoveFaultsToErrorQueueHandler>();
     }
 }

@@ -52,7 +52,7 @@
                     {Headers.HostDisplayName, hostInfo.DisplayName}
                 };
 
-                var recoveryActionExecutor = new MoveToErrorsActionExecutor(b.Build<IDispatchMessages>(), errorQueue, staticFaultMetadata);
+                var recoveryActionExecutor = new MoveToErrorsExecutor(b.Build<IDispatchMessages>(), errorQueue, staticFaultMetadata);
 
                 var errorBehavior = new MoveFaultsToErrorQueueHandler(
                     b.Build<CriticalError>(),
