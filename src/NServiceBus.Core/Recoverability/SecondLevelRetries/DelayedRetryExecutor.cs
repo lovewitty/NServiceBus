@@ -29,11 +29,11 @@
             outgoingMessage.Headers[Headers.RetriesTimestamp] = DateTimeExtensions.ToWireFormattedString(DateTime.UtcNow);
 
             UnicastAddressTag messageDestination;
-            DeliveryConstraint[] deliveryConstraints = null;
+            List<DeliveryConstraint> deliveryConstraints = null;
             if (timeoutManagerAddress == null)
             {
                 // transport supports native deferred messages, directly send to input queue with delay constraint:
-                deliveryConstraints = new DeliveryConstraint[]
+                deliveryConstraints = new List<DeliveryConstraint>
                 {
                     new DelayDeliveryWith(delay)
                 };
