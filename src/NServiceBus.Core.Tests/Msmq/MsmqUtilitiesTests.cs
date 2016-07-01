@@ -5,6 +5,8 @@
     using System.Linq;
     using System.Messaging;
     using BenchmarkDotNet.Attributes;
+    using BenchmarkDotNet.Configs;
+    using BenchmarkDotNet.Diagnostics.Windows;
     using BenchmarkDotNet.Running;
     using DeliveryConstraints;
     using NServiceBus.Performance.TimeToBeReceived;
@@ -107,6 +109,7 @@
         }
     }
 
+    [Config(typeof(Config))]
     public class HeadersPerformanceTests
     {
         [Benchmark]
@@ -173,5 +176,13 @@
             {Headers.NServiceBusVersion, "6.0.0"},
             {Headers.CorrelationId, ""}
         }, new byte[0]), Enumerable.Empty<DeliveryConstraint>());
+
+        private class Config : ManualConfig
+        {
+            public Config()
+            {
+                Add(new MemoryDiagnoser());
+            }
+        }
     }
 }

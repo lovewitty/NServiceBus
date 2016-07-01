@@ -150,6 +150,7 @@
     <Compile Include="Settings\ScaleOutSettings.cs" />
     <Compile Include="Transports\IOutgoingTransportOperation.cs" />
     <Compile Include="Transports\LogicalAddressExtensions.cs" />
+    <Compile Include="Transports\Msmq\MsmqFastHeadersParser.cs" />
     <Compile Include="Transports\Msmq\MsmqScopeOptions.cs" />
     <Compile Include="Transports\Msmq\MsmqTransportInfrastructure.cs" />
     <Compile Include="Transports\MulticastTransportOperation.cs" />
