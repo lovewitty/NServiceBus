@@ -5,6 +5,7 @@ namespace NServiceBus
     using System.IO;
     using System.Linq;
     using System.Messaging;
+    using System.Reflection;
     using System.Runtime.Serialization;
     using System.Text;
     using System.Xml;
@@ -212,8 +213,8 @@ namespace NServiceBus
 
         static string GetKey(ArraySegment<byte> s)
         {
-            // TODO: memoize and return "internalized" string for this
-            return Encoding.UTF8.GetString(s.Array, s.Offset, s.Count);
+            string key;
+            return HeaderBytes.KnownHeaders.TryGetValue(s, out key) ? key : Encoding.UTF8.GetString(s.Array, s.Offset, s.Count);
         }
 
         static string GetValue(ArraySegment<byte> s)
@@ -480,6 +481,22 @@ namespace NServiceBus
 
         class HeaderBytes
         {
+            static HeaderBytes()
+            {
+                var headerKeys = typeof(Headers).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                    .Where(fi => fi.IsLiteral && !fi.IsInitOnly)
+                    .Select(fi => fi.GetRawConstantValue())
+                    .Cast<string>()
+                    .ToArray();
+
+                KnownHeaders = new Dictionary<ArraySegment<byte>, string>(new KeyArraySegmentComparer());
+
+                foreach (var headerKey in headerKeys)
+                {
+                    KnownHeaders.Add(new ArraySegment<byte>(Encoding.UTF8.GetBytes(headerKey)), headerKey);
+                }
+            }
+
             public static byte Open = Encoding.UTF8.GetBytes("<").Single();
             public static byte Close = Encoding.UTF8.GetBytes(">").Single();
             public static readonly ArraySegment<byte> HeaderInfo = new ArraySegment<byte>(Encoding.UTF8.GetBytes("HeaderInfo"));
@@ -489,6 +506,20 @@ namespace NServiceBus
             public static readonly ArraySegment<byte> HeaderValue = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Value"));
             public static readonly ArraySegment<byte> HeaderValueEnd = new ArraySegment<byte>(Encoding.UTF8.GetBytes("/Value"));
             public static readonly ArraySegment<byte> HeaderValueEmpty = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Value /"));
+            public static Dictionary<ArraySegment<byte>, string> KnownHeaders;
+
+            class KeyArraySegmentComparer : IEqualityComparer<ArraySegment<byte>>
+            {
+                public bool Equals(ArraySegment<byte> x, ArraySegment<byte> y)
+                {
+                    return UnsafeCompare(x, y);
+                }
+
+                public int GetHashCode(ArraySegment<byte> obj)
+                {
+                    return obj.Count;
+                }
+            }
         }
     }
 }
