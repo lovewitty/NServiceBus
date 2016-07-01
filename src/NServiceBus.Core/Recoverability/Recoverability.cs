@@ -37,10 +37,9 @@
             var errorQueue = context.Settings.ErrorQueueAddress();
             context.Settings.Get<QueueBindings>().BindSending(errorQueue);
 
-            var failureInfoStorage = new FailureInfoStorage(context.Settings.Get<int>(FailureInfoStorageCacheSizeKey));
             var localAddress = context.Settings.LocalAddress();
 
-            context.Pipeline.Register("Recoverability", b =>
+            context.Container.ConfigureComponent(b =>
             {
                 var hostInfo = b.Build<HostInformation>();
                 var staticFaultMetadata = new Dictionary<string, string>
@@ -52,42 +51,31 @@
                     {Headers.HostDisplayName, hostInfo.DisplayName}
                 };
 
-                var recoveryActionExecutor = new MoveToErrorsExecutor(b.Build<IDispatchMessages>(), errorQueue, staticFaultMetadata);
+                var moveToErrorsExecutor = new MoveToErrorsExecutor(b.Build<IDispatchMessages>(), errorQueue, staticFaultMetadata);
 
-                var errorBehavior = new MoveFaultsToErrorQueueHandler(
-                    b.Build<CriticalError>(),
-                    failureInfoStorage,
-                    recoveryActionExecutor);
-
-                SecondLevelRetriesHandler slrHandler = null;
-
-                if (IsDelayedRetriesEnabled(context.Settings))
-                {
-                    var retryPolicy = GetDelayedRetryPolicy(context.Settings);
-                    var delayedRetryExecutor = new DelayedRetryExecutor(
+                var delayedRetriesEnabled = IsDelayedRetriesEnabled(context.Settings);
+                var delayedRetryPolicy = delayedRetriesEnabled ? GetDelayedRetryPolicy(context.Settings) : null;
+                var delayedRetryExecutor = new DelayedRetryExecutor(
                         localAddress,
                         b.Build<IDispatchMessages>(),
                         context.DoesTransportSupportConstraint<DelayedDeliveryConstraint>()
                             ? null
                             : context.Settings.Get<TimeoutManagerAddressConfiguration>().TransportAddress);
 
-                    slrHandler = new SecondLevelRetriesHandler(retryPolicy, failureInfoStorage, delayedRetryExecutor);
-                }
-
-                FirstLevelRetriesHandler flrHandler = null;
-
-                if (IsImmediateRetriesEnabled(context.Settings))
-                {
-                    var maxRetries = GetMaxRetries(context.Settings);
-                    var retryPolicy = new FirstLevelRetryPolicy(maxRetries);
-
-                    flrHandler = new FirstLevelRetriesHandler(failureInfoStorage, retryPolicy);
-                }
-
+                var immediateRetriesEnabled = IsImmediateRetriesEnabled(context.Settings);
+                var maxImmediateRetries = immediateRetriesEnabled ? GetMaxImmediateRetries(context.Settings) : 0;
+                
+                //TODO: this should be handled by RecoverabilityExecutor
                 var transportTransactionMode = context.Settings.GetRequiredTransactionModeForReceives();
 
-                return new RecoverabilityBehavior(flrHandler, slrHandler, errorBehavior, transportTransactionMode != TransportTransactionMode.None);
-            }, "Handles message recoverability");
+                var recoverabilityPolicy = new RecoverabilityPolicy(immediateRetriesEnabled, delayedRetriesEnabled, maxImmediateRetries, delayedRetryPolicy);
+
+                return new RecoverabilityExecutor(
+                    recoverabilityPolicy, 
+                    delayedRetryExecutor, 
+                    moveToErrorsExecutor, 
+                    transportTransactionMode == TransportTransactionMode.None);
+            }, DependencyLifecycle.SingleInstance);  
 
             RaiseLegacyNotifications(context);
         }
@@ -149,7 +137,7 @@
                 return false;
             }
 
-            return GetMaxRetries(settings) > 0;
+            return GetMaxImmediateRetries(settings) > 0;
         }
 
         //note: will soon be removed since we're deprecating Notifications in favor of the new notifications
@@ -179,16 +167,11 @@
             });
         }
 
-        int GetMaxRetries(ReadOnlySettings settings)
+        int GetMaxImmediateRetries(ReadOnlySettings settings)
         {
             var retriesConfig = settings.GetConfigSection<TransportConfig>();
 
-            if (retriesConfig == null)
-            {
-                return settings.Get<int>(FlrNumberOfRetries);
-            }
-
-            return retriesConfig.MaxRetries;
+            return retriesConfig?.MaxRetries ?? settings.Get<int>(FlrNumberOfRetries);
         }
 
         public const string SlrNumberOfRetries = "Recoverability.Slr.DefaultPolicy.Retries";

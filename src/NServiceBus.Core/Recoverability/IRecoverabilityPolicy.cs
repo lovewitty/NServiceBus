@@ -12,8 +12,10 @@ namespace NServiceBus
 
     class RecoverabilityPolicy : IRecoverabilityPolicy
     {
-        public RecoverabilityPolicy(int maxImmediateRetries, SecondLevelRetryPolicy secondLevelRetryPolicy)
+        public RecoverabilityPolicy(bool immediateRetriesEnabled, bool delayedRetriesEnabled, int maxImmediateRetries, SecondLevelRetryPolicy secondLevelRetryPolicy)
         {
+            this.immediateRetriesEnabled = immediateRetriesEnabled;
+            this.delayedRetriesEnabled = delayedRetriesEnabled;
             this.maxImmediateRetries = maxImmediateRetries;
             this.secondLevelRetryPolicy = secondLevelRetryPolicy;
         }
@@ -21,28 +23,33 @@ namespace NServiceBus
         //TODO: discuss metadata support for policy
         public RecoverabilityAction Invoke(ErrorContext errorContext, int currentSlrAttempts)
         {
-            if (errorContext.ImmediateProcessingAttempts <= maxImmediateRetries)
+            if (immediateRetriesEnabled)
             {
-                return new ImmediateRetry();
+                if (errorContext.ImmediateProcessingAttempts <= maxImmediateRetries)
+                {
+                    return new ImmediateRetry();
+                }
+
+                Logger.InfoFormat("Giving up First Level Retries for message '{0}'.", errorContext.Message.MessageId);
             }
 
-            Logger.InfoFormat("Giving up First Level Retries for message '{0}'.", errorContext.Message.MessageId);
-
-
-            var slrRetryContext = new SecondLevelRetryContext
+            if (delayedRetriesEnabled)
             {
-                Exception = errorContext.Exception,
-                Message = errorContext.Message, //TODO: do we need message body here
-                SecondLevelRetryAttempt = currentSlrAttempts + 1
-            };
+                var slrRetryContext = new SecondLevelRetryContext
+                {
+                    Exception = errorContext.Exception,
+                    Message = errorContext.Message, //TODO: do we need message body here
+                    SecondLevelRetryAttempt = currentSlrAttempts + 1
+                };
 
-            TimeSpan retryDelay;
-            if (secondLevelRetryPolicy.TryGetDelay(slrRetryContext, out retryDelay))
-            {
-                return new DelayedRetry(retryDelay);
+                TimeSpan retryDelay;
+                if (secondLevelRetryPolicy.TryGetDelay(slrRetryContext, out retryDelay))
+                {
+                    return new DelayedRetry(retryDelay);
+                }
+
+                Logger.WarnFormat("Giving up Second Level Retries for message '{0}'.", errorContext.Message.MessageId);
             }
-
-            Logger.WarnFormat("Giving up Second Level Retries for message '{0}'.", errorContext.Message.MessageId);
 
             return new MoveToError();
         }
@@ -61,6 +68,8 @@ namespace NServiceBus
             return 0;
         }
 
+        bool immediateRetriesEnabled;
+        bool delayedRetriesEnabled;
         int maxImmediateRetries;
         SecondLevelRetryPolicy secondLevelRetryPolicy;
 

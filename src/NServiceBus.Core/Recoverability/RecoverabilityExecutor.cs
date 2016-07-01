@@ -6,17 +6,26 @@
 
     class RecoverabilityExecutor
     {
-        public RecoverabilityExecutor(IRecoverabilityPolicy recoverabilityPolicy, DelayedRetryExecutor delayedRetryExecutor, MoveToErrorsExecutor moveToErrorsExecutor)
+        public RecoverabilityExecutor(IRecoverabilityPolicy recoverabilityPolicy, DelayedRetryExecutor delayedRetryExecutor, MoveToErrorsExecutor moveToErrorsExecutor, bool noTransactions)
         {
             this.recoverabilityPolicy = recoverabilityPolicy;
             this.delayedRetryExecutor = delayedRetryExecutor;
             this.moveToErrorsExecutor = moveToErrorsExecutor;
+            this.noTransactions = noTransactions;
         }
 
         //TODO: register eventAggregator in DI
         //TODO: we probably want to reverse the bool result that is returned
         public async Task<bool> Invoke(ErrorContext errorContext, IEventAggregator eventAggregator)
         {
+            //When running with no transactions we do best effort move to errors
+            if (noTransactions)
+            {
+                await MoveToError(eventAggregator, errorContext).ConfigureAwait(false);
+
+                return true;
+            }
+
             var currentSlrAttempts = DelayedRetryExecutor.GetNumberOfRetries(errorContext.Message.Headers);
             
             //TODO: this should be wrapped in try-catch 
@@ -36,7 +45,7 @@
 
             if (recoveryAction is MoveToError)
             {
-                await MoveToError(recoveryAction as MoveToError, eventAggregator, errorContext).ConfigureAwait(false);
+                await MoveToError(eventAggregator, errorContext).ConfigureAwait(false);
             }
 
             //TODO: probably we want to throw here 
@@ -45,7 +54,7 @@
         }
 
 
-        async Task MoveToError(MoveToError action, IEventAggregator eventAggregator, ErrorContext errorContext)
+        async Task MoveToError(IEventAggregator eventAggregator, ErrorContext errorContext)
         {
             var message = errorContext.Message;
 
@@ -70,6 +79,7 @@
         IRecoverabilityPolicy recoverabilityPolicy;
         DelayedRetryExecutor delayedRetryExecutor;
         MoveToErrorsExecutor moveToErrorsExecutor;
+        readonly bool noTransactions;
 
         static ILog Logger = LogManager.GetLogger<SecondLevelRetriesHandler>();
     }
