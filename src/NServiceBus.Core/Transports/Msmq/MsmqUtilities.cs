@@ -5,6 +5,7 @@ namespace NServiceBus
     using System.IO;
     using System.Linq;
     using System.Messaging;
+    using System.Runtime.Serialization;
     using System.Text;
     using System.Xml;
     using DeliveryConstraints;
@@ -120,7 +121,7 @@ namespace NServiceBus
             return result;
         }
 
-        public static unsafe Dictionary<string, string> DeserializeMessageHeadersFast(Message m)
+        public static Dictionary<string, string> DeserializeMessageHeadersFast(Message m)
         {
             var bytes = m.Extension;
             var result = new Dictionary<string, string>();
@@ -132,40 +133,169 @@ namespace NServiceBus
                 return result;
             }
 
-            var encoding = Encoding.UTF8;
-            var charCount = encoding.GetCharCount(bytes, 0, byteCount);
+            var pos = 0;
 
-            char* chars = stackalloc char[charCount];
-            fixed(byte* b = bytes)
+            // <xml
+            if (TryMoveNext(bytes, HeaderBytes.Open, ref pos) == false)
             {
-                encoding.GetChars(b, byteCount, chars, charCount);
+                return result;
             }
+            pos += 1;
 
-            //This is to make us compatible with v3 messages that are affected by this bug:
-            //http://stackoverflow.com/questions/3779690/xml-serialization-appending-the-0-backslash-0-or-null-character
-            TextUtils.TrimEnd(chars, ref charCount, '\0');
-
-            object o;
-            using (var stream = new TextUtils.UnsafeReadBlockTextReader(chars, charCount))
+            // <ArrayOfHeaderInfo
+            if (TryMoveNext(bytes, HeaderBytes.Open, ref pos) == false)
             {
-                using (var reader = XmlReader.Create(stream, new XmlReaderSettings
-                {
-                    CheckCharacters = false
-                }))
-                {
-                    o = headerSerializer.Deserialize(reader);
-                }
+                return result;
             }
+            pos += 1;
 
-            foreach (var pair in (List<HeaderInfo>) o)
+            // loop over <HeaderInfo>, moving to the starting tag
+            while (TryMoveNext(bytes, HeaderBytes.Open, ref pos))
             {
-                if (pair.Key != null)
+                if (TryConsumeTag(bytes, ref pos, HeaderBytes.HeaderInfo) == false)
                 {
-                    result.Add(pair.Key, pair.Value);
+                    // this is not a header info
+                    break;
                 }
+                // inside <HeaderInfo>...
+                //                    ^
+
+                ConsumeTag(bytes, ref pos, HeaderBytes.HeaderKey);
+                // <Key>...
+                //      ^
+                var keyStart = pos;
+                MoveNext(bytes, HeaderBytes.Open, ref pos);
+
+                var key = GetKey(new ArraySegment<byte>(bytes, keyStart, pos - keyStart));
+
+                ConsumeTag(bytes, ref pos, HeaderBytes.HeaderKeyEnd);
+                // </Key>...
+                //       ^
+
+                MoveNext(bytes, HeaderBytes.Open, ref pos);
+
+                if (TryConsumeTag(bytes, ref pos, HeaderBytes.HeaderValue))
+                {
+                    // <Value>...
+                    //        ^
+
+                    var valueStart = pos;
+                    MoveNext(bytes, HeaderBytes.Open, ref pos);
+
+                    var value = GetValue(new ArraySegment<byte>(bytes, valueStart, pos - valueStart));
+                    result.Add(key, value);
+
+                    TryConsumeTag(bytes, ref pos, HeaderBytes.HeaderValueEnd);
+                    // </Value>...
+                    //         ^
+                }
+                else
+                {
+                    if (TryConsumeTag(bytes, ref pos, HeaderBytes.HeaderValueEmpty))
+                    {
+                        // <Value />...
+                        //          ^
+                        result.Add(key, "");
+                    }
+                    else
+                    {
+                        throw new SerializationException();
+                    }
+                }
+                ConsumeTag(bytes, ref pos, HeaderBytes.HeaderInfoEnd);
+                // </HeaderInfo>...
+                //              ^
             }
 
             return result;
+        }
+
+        static string GetKey(ArraySegment<byte> s)
+        {
+            // TODO: memoize and return "internalized" string for this
+            return Encoding.UTF8.GetString(s.Array, s.Offset, s.Count);
+        }
+
+        static string GetValue(ArraySegment<byte> s)
+        {
+            return Encoding.UTF8.GetString(s.Array, s.Offset, s.Count);
+        }
+
+        /// <summary>
+        /// Consumes a tag moving the <paramref name="pos" /> rigth after the tag.
+        /// </summary>
+        static void ConsumeTag(byte[] bytes, ref int pos, ArraySegment<byte> tag)
+        {
+            if (TryConsumeTag(bytes, ref pos, tag) == false)
+            {
+                throw new SerializationException();
+            }
+        }
+
+        static bool TryConsumeTag(byte[] bytes, ref int position, ArraySegment<byte> tag)
+        {
+            var pos = position;
+            MoveNext(bytes, HeaderBytes.Open, ref pos);
+            var start = pos + 1;
+            MoveNext(bytes, HeaderBytes.Close, ref pos);
+            var end = pos - 1;
+
+
+            var headerInfo = new ArraySegment<byte>(bytes, start, end - start + 1);
+            if (UnsafeCompare(headerInfo, tag))
+            {
+                pos += 1;
+                position = pos;
+                return true;
+            }
+
+            return false;
+        }
+
+        static bool TryMoveNext(byte[] bytes, byte b, ref int pos)
+        {
+            if (pos < 0)
+            {
+                return false;
+            }
+            pos = Array.IndexOf(bytes, b, pos);
+            return true;
+        }
+
+        static void MoveNext(byte[] bytes, byte b, ref int pos)
+        {
+            if (TryMoveNext(bytes, b, ref pos) == false)
+            {
+                throw new SerializationException();
+            }
+        }
+
+        static unsafe bool UnsafeCompare(ArraySegment<byte> a1, ArraySegment<byte> a2)
+        {
+            if (a1.Count != a2.Count)
+                return false;
+            fixed(byte* p1 = a1.Array, p2 = a2.Array)
+            {
+                var x1 = p1 + a1.Offset;
+                var x2 = p2 + a2.Offset;
+                var l = a1.Count;
+                for (var i = 0; i < l/8; i++, x1 += 8, x2 += 8)
+                    if (*((long*) x1) != *((long*) x2)) return false;
+                if ((l & 4) != 0)
+                {
+                    if (*((int*) x1) != *((int*) x2)) return false;
+                    x1 += 4;
+                    x2 += 4;
+                }
+                if ((l & 2) != 0)
+                {
+                    if (*((short*) x1) != *((short*) x2)) return false;
+                    x1 += 2;
+                    x2 += 2;
+                }
+                if ((l & 1) != 0) if (*x1 != *x2) return false;
+                return true;
+            }
         }
 
         public static Message Convert(OutgoingMessage message, IEnumerable<DeliveryConstraint> deliveryConstraints)
@@ -347,5 +477,18 @@ namespace NServiceBus
 
         static System.Xml.Serialization.XmlSerializer headerSerializer = new System.Xml.Serialization.XmlSerializer(typeof(List<HeaderInfo>));
         static ILog Logger = LogManager.GetLogger<MsmqUtilities>();
+
+        class HeaderBytes
+        {
+            public static byte Open = Encoding.UTF8.GetBytes("<").Single();
+            public static byte Close = Encoding.UTF8.GetBytes(">").Single();
+            public static readonly ArraySegment<byte> HeaderInfo = new ArraySegment<byte>(Encoding.UTF8.GetBytes("HeaderInfo"));
+            public static readonly ArraySegment<byte> HeaderInfoEnd = new ArraySegment<byte>(Encoding.UTF8.GetBytes("/HeaderInfo"));
+            public static readonly ArraySegment<byte> HeaderKey = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Key"));
+            public static readonly ArraySegment<byte> HeaderKeyEnd = new ArraySegment<byte>(Encoding.UTF8.GetBytes("/Key"));
+            public static readonly ArraySegment<byte> HeaderValue = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Value"));
+            public static readonly ArraySegment<byte> HeaderValueEnd = new ArraySegment<byte>(Encoding.UTF8.GetBytes("/Value"));
+            public static readonly ArraySegment<byte> HeaderValueEmpty = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Value /"));
+        }
     }
 }

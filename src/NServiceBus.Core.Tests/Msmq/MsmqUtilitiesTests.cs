@@ -107,7 +107,6 @@
         }
     }
 
-
     public class HeadersPerformanceTests
     {
         [Benchmark]

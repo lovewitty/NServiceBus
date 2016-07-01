@@ -761,7 +761,6 @@
     <Compile Include="Utils\RegistryReader.cs" />
     <Compile Include="Encryption\WireEncryptedString.cs" />
     <Compile Include="obsoletes.cs" />
-    <Compile Include="Utils\TextUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
