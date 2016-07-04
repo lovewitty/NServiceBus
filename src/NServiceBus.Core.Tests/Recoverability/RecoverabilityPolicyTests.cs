@@ -15,7 +15,6 @@
         {
             var policy = new RecoverabilityPolicy(true, true, 2, new DefaultSecondLevelRetryPolicy(2, TimeSpan.FromSeconds(2)));
             var errorContext = new ErrorContext(new Exception(), new Dictionary<string, string>(), "message-id", new MemoryStream(), new TransportTransaction(), 2);
-
             var recoverabilityAction = policy.Invoke(errorContext, 0);
 
             Assert.IsInstanceOf<ImmediateRetry>(recoverabilityAction, "We should have one immediate retry left. It is second delivery attempt and we configured immediate reties to 2.");

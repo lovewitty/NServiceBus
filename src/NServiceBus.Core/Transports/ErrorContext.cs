@@ -40,6 +40,11 @@
         public int NumberOfDeliveryAttempts { get; private set; }
 
         /// <summary>
+        /// Failed incoming message.
+        /// </summary>
+        public IncomingMessage Message { get; private set; }
+
+        /// <summary>
         /// Initializes the error context.
         /// </summary>
         public ErrorContext(Exception exception, Dictionary<string, string> headers, string messageId, Stream bodyStream, TransportTransaction transportTransaction, int numberOfDeliveryAttempts)
@@ -50,6 +55,11 @@
             BodyStream = bodyStream;
             TransportTransaction = transportTransaction;
             NumberOfDeliveryAttempts = numberOfDeliveryAttempts;
+
+            Message = new IncomingMessage(MessageId, Headers, BodyStream);
+
+            //Incoming message reads the body stream so we need to rewind it
+            BodyStream.Position = 0;
         }
     }
 }

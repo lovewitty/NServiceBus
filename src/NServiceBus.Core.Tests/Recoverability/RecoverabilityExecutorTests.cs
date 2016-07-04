@@ -12,6 +12,7 @@
     [TestFixture]
     public class RecoverabilityExecutorTests
     {
+        //TODO: add tests for slr and error notification raising
         [Test]
         public async Task When_failure_is_caused_by_deserialization_exception_no_retries_should_be_performed()
         {
