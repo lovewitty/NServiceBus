@@ -179,23 +179,8 @@ namespace NServiceBus
 
         Task<bool> InvokeError(IBuilder rootBuilder, ErrorContext errorContext)
         {
-            /*
-            var message = new IncomingMessage(messageContext.MessageId, messageContext.Headers, messageContext.BodyStream);
-
-            var dispatchContext = new ContextBag();
-            dispatchContext.Set(messageContext.TransportTransaction);
-
-            var errorContext = new ErrorContext
-            {
-                Exception = exception,
-                Message = message,
-                DispatchContext = dispatchContext,
-                NumberOfImmediateProcessingAttempts = processingAttempts
-            };
-            */
             return builder.Build<RecoverabilityExecutor>().Invoke(errorContext, eventAggregator);
         }
-
 
         Task<bool> InvokeSatelliteError(IBuilder rootBuilder, ErrorContext context)
         {

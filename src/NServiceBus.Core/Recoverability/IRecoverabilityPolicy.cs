@@ -54,20 +54,6 @@ namespace NServiceBus
             return new MoveToError();
         }
 
-        static int GetNumberOfRetries(Dictionary<string, string> headers)
-        {
-            string value;
-            if (headers.TryGetValue(Headers.Retries, out value))
-            {
-                int i;
-                if (int.TryParse(value, out i))
-                {
-                    return i;
-                }
-            }
-            return 0;
-        }
-
         bool immediateRetriesEnabled;
         bool delayedRetriesEnabled;
         int maxImmediateRetries;

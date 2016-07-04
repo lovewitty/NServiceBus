@@ -1,5 +1,6 @@
 ﻿namespace NServiceBus
 {
+    using System;
     using System.Threading.Tasks;
     using Logging;
     using Transports;
@@ -23,34 +24,33 @@
             {
                 await MoveToError(eventAggregator, errorContext).ConfigureAwait(false);
 
-                return true;
+                return false;
             }
 
             var currentSlrAttempts = DelayedRetryExecutor.GetNumberOfRetries(errorContext.Message.Headers);
             
-            //TODO: this should be wrapped in try-catch 
             var recoveryAction = recoverabilityPolicy.Invoke(errorContext, currentSlrAttempts); //????
 
             if (recoveryAction is ImmediateRetry)
             {
-                return false;
+                return true;
             }
 
             if (recoveryAction is DelayedRetry)
             {
                 await DeferMessage(recoveryAction as DelayedRetry, eventAggregator, errorContext, currentSlrAttempts).ConfigureAwait(false);
 
-                return true;
+                return false;
             }
 
             if (recoveryAction is MoveToError)
             {
                 await MoveToError(eventAggregator, errorContext).ConfigureAwait(false);
+
+                return false;
             }
 
-            //TODO: probably we want to throw here 
-
-            return false;
+            throw new Exception("Unknown recoverability action returned from RecoverabilityPolicy");
         }
 
 
@@ -79,7 +79,7 @@
         IRecoverabilityPolicy recoverabilityPolicy;
         DelayedRetryExecutor delayedRetryExecutor;
         MoveToErrorsExecutor moveToErrorsExecutor;
-        readonly bool noTransactions;
+        bool noTransactions;
 
         static ILog Logger = LogManager.GetLogger<SecondLevelRetriesHandler>();
     }

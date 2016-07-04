@@ -65,7 +65,6 @@
                 var immediateRetriesEnabled = IsImmediateRetriesEnabled(context.Settings);
                 var maxImmediateRetries = immediateRetriesEnabled ? GetMaxImmediateRetries(context.Settings) : 0;
                 
-                //TODO: this should be handled by RecoverabilityExecutor
                 var transportTransactionMode = context.Settings.GetRequiredTransactionModeForReceives();
 
                 var recoverabilityPolicy = new RecoverabilityPolicy(immediateRetriesEnabled, delayedRetriesEnabled, maxImmediateRetries, delayedRetryPolicy);
