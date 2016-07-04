@@ -21,12 +21,6 @@
 
             context.Pipeline.Register(new CaptureExceptionBehavior.Registration(scenarioContext.UnfinishedFailedMessages));
 
-            context.Settings.Get<NotificationSubscriptions>().Subscribe<MessageToBeRetried>(m =>
-            {
-                scenarioContext.UnfinishedFailedMessages.AddOrUpdate(m.Message.MessageId, id => 0, (id, value) => value - 1);
-                return TaskEx.CompletedTask;
-            });
-
             context.Settings.Get<NotificationSubscriptions>().Subscribe<MessageFaulted>(m =>
             {
                 scenarioContext.FailedMessages.AddOrUpdate(
@@ -42,7 +36,8 @@
                         return result;
                     });
 
-                scenarioContext.UnfinishedFailedMessages.AddOrUpdate(m.Message.MessageId, id => 0, (id, value) => value - 1);
+                //We need to set the error counter to 0 as we want to reset all processing exceptions caused by immediate retries
+                scenarioContext.UnfinishedFailedMessages.AddOrUpdate(m.Message.MessageId, id => 0, (id, value) => 0);
 
                 return Task.FromResult(0);
             });
@@ -61,7 +56,7 @@
 
                 await next().ConfigureAwait(false);
 
-                failedMessages.AddOrUpdate(context.Message.MessageId, id => 0, (id, value) => value - 1);
+                failedMessages.AddOrUpdate(context.Message.MessageId, id => 0, (id, value) => 0);
             }
 
             ConcurrentDictionary<string, int> failedMessages;
