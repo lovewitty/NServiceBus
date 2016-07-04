@@ -140,7 +140,6 @@
     <Compile Include="Recoverability\Faults\MoveToErrorsExecutor.cs" />
     <Compile Include="Recoverability\RecoverabilityPolicy.cs" />
     <Compile Include="Recoverability\SecondLevelRetries\DelayedRetryExecutor.cs" />
-    <Compile Include="Recoverability\RecoverabilityBehavior.cs" />
     <Compile Include="Recoverability\SecondLevelRetries\SecondLevelRetryContext.cs" />
     <Compile Include="ReleaseDateAttribute.cs" />
     <Compile Include="Recoverability\ProcessingFailureInfo.cs" />
@@ -540,7 +539,6 @@
     <Compile Include="Sagas\InvokeSagaNotFoundBehavior.cs" />
     <Compile Include="Transports\Msmq\ReceiveWithTransactionScope.cs" />
     <Compile Include="Forwarding\ForwardReceivedMessages.cs" />
-    <Compile Include="Recoverability\FirstLevelRetries\FirstLevelRetriesHandler.cs" />
     <Compile Include="Unicast\Config\RegisterHandlersInOrder.cs" />
     <Compile Include="Performance\Statistics\SLA\SLAMonitoring.cs" />
     <Compile Include="Performance\Statistics\ProcessingStatisticsBehavior.cs" />

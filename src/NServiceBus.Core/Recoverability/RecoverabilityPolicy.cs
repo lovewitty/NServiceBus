@@ -23,7 +23,7 @@ namespace NServiceBus
                     return new ImmediateRetry();
                 }
 
-                Logger.InfoFormat("Giving up First Level Retries for message '{0}'.", errorContext.Message.MessageId);
+                Logger.InfoFormat("Giving up First Level Retries for message '{0}'.", errorContext.MessageId);
             }
 
             if (delayedRetriesEnabled)
@@ -31,7 +31,7 @@ namespace NServiceBus
                 var slrRetryContext = new SecondLevelRetryContext
                 {
                     Exception = errorContext.Exception,
-                    Message = errorContext.Message, //TODO: do we need message body here
+                    Message = null, //TODO: do we need message body here
                     SecondLevelRetryAttempt = currentDelayedRetryAttempts + 1
                 };
 
@@ -41,7 +41,7 @@ namespace NServiceBus
                     return new DelayedRetry(retryDelay);
                 }
 
-                Logger.WarnFormat("Giving up Second Level Retries for message '{0}'.", errorContext.Message.MessageId);
+                Logger.WarnFormat("Giving up Second Level Retries for message '{0}'.", errorContext.MessageId);
             }
 
             return new MoveToError();

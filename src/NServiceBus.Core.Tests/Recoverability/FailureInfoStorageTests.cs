@@ -5,6 +5,7 @@ namespace NServiceBus.Core.Tests.Timeout.TimeoutManager
     using System.Runtime.ExceptionServices;
     using NUnit.Framework;
 
+    //TODO: this needs to be moved to MSMQ specific tests
     public class FailureInfoStorageTests
     {
         [Test]

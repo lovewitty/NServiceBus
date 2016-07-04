@@ -115,20 +115,7 @@ namespace NServiceBus
         {
             try
             {
-                var incomingMessage = new IncomingMessage(message.Id, headers, message.BodyStream);
-
-                //TODO: this is hack. We should not need to rewind stream as IncomingMessage should be created only when moving to SLR/Error is performed
-                //      and not for immediate retries
-
-                message.BodyStream.Position = 0;
-
-                var errorContext = new ErrorContext
-                {
-                    Exception = exception,
-                    Message = incomingMessage,
-                    TransportTransaction = transportTransaction,
-                    NumberOfDeliveryAttempts = processingAttempts
-                };
+                var errorContext = new ErrorContext(exception, headers, message.Id, message.BodyStream, transportTransaction, processingAttempts);
 
                 return await OnError(errorContext).ConfigureAwait(false);
             }

@@ -155,8 +155,9 @@
     <Compile Include="Pipeline\RegisterStepTests.cs" />
     <Compile Include="Recoverability\FailureInfoStorageTests.cs" />
     <Compile Include="Recoverability\MoveToErrorsExecutorTests.cs" />
+    <Compile Include="Recoverability\RecoverabilityExecutorTests.cs" />
+    <Compile Include="Recoverability\RecoverabilityPolicyTests.cs" />
     <Compile Include="Recoverability\SecondLevelRetries\DelayedRetryExecutorTests.cs" />
-    <Compile Include="Recoverability\RecoverabilityBehaviorTests.cs" />
     <Compile Include="Routing\ApplyReplyToAddressBehaviorTests.cs" />
     <Compile Include="Routing\BestPracticesOptionExtensionsTests.cs" />
     <Compile Include="Routing\DetermineRouteForPublishBehaviorTests.cs" />
@@ -197,7 +198,6 @@
     <Compile Include="Encryption\ValidationTests.cs" />
     <Compile Include="Encryption\When_message_contains_props_and_fields_that_cannot_be_set.cs" />
     <Compile Include="Features\FeatureDefaultsTests.cs" />
-    <Compile Include="Recoverability\FirstLevelRetries\FirstLevelRetriesTests.cs" />
     <Compile Include="Faults\MoveFaultsToErrorQueueHandlerTests.cs" />
     <Compile Include="Hosting\HostInfoSettingsTests.cs" />
     <Compile Include="Logging\DefaultFactoryTests.cs" />
