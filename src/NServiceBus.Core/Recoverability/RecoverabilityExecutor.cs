@@ -16,7 +16,6 @@
         }
 
         //TODO: register eventAggregator in DI
-        //TODO: we probably want to reverse the bool result that is returned
         public async Task<bool> Invoke(ErrorContext errorContext, IEventAggregator eventAggregator)
         {
             //When running with no transactions we do best effort move to errors
@@ -29,10 +28,12 @@
 
             var currentSlrAttempts = DelayedRetryExecutor.GetNumberOfRetries(errorContext.Message.Headers);
             
-            var recoveryAction = recoverabilityPolicy.Invoke(errorContext, currentSlrAttempts); //????
+            var recoveryAction = recoverabilityPolicy.Invoke(errorContext, currentSlrAttempts);
 
             if (recoveryAction is ImmediateRetry)
             {
+                await RaiseImmediateRetryNotifications(eventAggregator, errorContext).ConfigureAwait(false);
+
                 return true;
             }
 
@@ -53,6 +54,13 @@
             throw new Exception("Unknown recoverability action returned from RecoverabilityPolicy");
         }
 
+        Task RaiseImmediateRetryNotifications(IEventAggregator eventAggregator, ErrorContext errorContext)
+        {
+            Logger.Info($"First Level Retry is going to retry message '{errorContext.Message.MessageId}' because of an exception:", errorContext.Exception);
+
+            return eventAggregator.Raise(new MessageToBeRetried(errorContext.NumberOfDeliveryAttempts - 1, TimeSpan.Zero, errorContext.Message, errorContext.Exception));
+
+        }
 
         async Task MoveToError(IEventAggregator eventAggregator, ErrorContext errorContext)
         {
@@ -60,7 +68,7 @@
 
             Logger.Error($"Moving message '{message.MessageId}' to the error queue because processing failed due to an exception:", errorContext.Exception);
 
-            await moveToErrorsExecutor.MoveToErrorQueue(message, errorContext.Exception, errorContext.DispatchContext).ConfigureAwait(false);
+            await moveToErrorsExecutor.MoveToErrorQueue(message, errorContext.Exception, errorContext.TransportTransaction).ConfigureAwait(false);
 
             await eventAggregator.Raise(new MessageFaulted(message, errorContext.Exception)).ConfigureAwait(false);
         }
@@ -71,7 +79,7 @@
 
             Logger.Warn($"Second Level Retry will reschedule message '{message.MessageId}' after a delay of {action.Delay} because of an exception:", errorContext.Exception);
 
-            await delayedRetryExecutor.Retry(message, action.Delay, currentSlrAttempts, errorContext.DispatchContext).ConfigureAwait(false);
+            await delayedRetryExecutor.Retry(message, action.Delay, currentSlrAttempts, errorContext.TransportTransaction).ConfigureAwait(false);
 
             await eventAggregator.Raise(new MessageToBeRetried(currentSlrAttempts + 1, action.Delay, message, errorContext.Exception)).ConfigureAwait(false);
         }

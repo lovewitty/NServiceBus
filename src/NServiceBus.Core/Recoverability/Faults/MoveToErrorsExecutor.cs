@@ -16,7 +16,7 @@
             this.staticFaultMetadata = staticFaultMetadata;
         }
 
-        public Task MoveToErrorQueue(IncomingMessage message, Exception exception, ContextBag context)
+        public Task MoveToErrorQueue(IncomingMessage message, Exception exception, TransportTransaction transportTransaction)
         {
             message.RevertToOriginalBodyIfNeeded();
 
@@ -33,7 +33,11 @@
             }
 
             var transportOperations = new TransportOperations(new TransportOperation(outgoingMessage, new UnicastAddressTag(errorQueueAddress)));
-            return dispatcher.Dispatch(transportOperations, context);
+
+            var dispatchContext = new ContextBag();
+            dispatchContext.Set(transportTransaction);
+
+            return dispatcher.Dispatch(transportOperations, dispatchContext);
         }
 
         IDispatchMessages dispatcher;

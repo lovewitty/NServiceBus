@@ -58,7 +58,7 @@ namespace NServiceBus
                 Logger.Error($"Moving timeout message '{context.MessageId}' from '{localAddress}' to '{errorQueueAddress}' because processing failed due to an exception:", failureInfo.Exception);
 
                 var message = new IncomingMessage(context.MessageId, context.Headers, context.BodyStream);
-                await moveToErrorsExecutor.MoveToErrorQueue(message, failureInfo.Exception, context.Context).ConfigureAwait(false);
+                await moveToErrorsExecutor.MoveToErrorQueue(message, failureInfo.Exception, context.TransportTransaction).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

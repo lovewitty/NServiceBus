@@ -1,7 +1,6 @@
 ﻿namespace NServiceBus.Transports
 {
     using System;
-    using Extensibility;
 
     /// <summary>
     /// The context for messages that has failed processing.
@@ -14,18 +13,18 @@
         public Exception Exception { get; set; }
 
         /// <summary>
-        /// Failed message
+        /// Failed incoming message.
         /// </summary>
         public IncomingMessage Message { get; set; }
 
         /// <summary>
-        /// Transport seam message dispatch context.
+        /// Transport transaction for failed receive message.
         /// </summary>
-        public ContextBag DispatchContext { get; set; }
+        public TransportTransaction TransportTransaction { get; set; }
 
         /// <summary>
-        /// Number of immediate processing attempts
+        /// Number of immediate processing attempts.
         /// </summary>
-        public int ImmediateProcessingAttempts { get; set; }
+        public int NumberOfDeliveryAttempts { get; set; }
     }
 }

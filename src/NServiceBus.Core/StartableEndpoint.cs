@@ -7,7 +7,6 @@ namespace NServiceBus
     using System.Threading.Tasks;
     using Config;
     using ConsistencyGuarantees;
-    using Extensibility;
     using Features;
     using Logging;
     using ObjectBuilder;
@@ -107,7 +106,7 @@ namespace NServiceBus
                     satellitePushSettings,
                     dequeueLimitations,
                     satellitePipeline.OnMessage,
-                    (b, context) => InvokeSatelliteError(b, context));
+                    InvokeSatelliteError);
 
                 receivers.Add(receiver);
             }
@@ -122,7 +121,7 @@ namespace NServiceBus
                 builder,
                 pushSettings,
                 dequeueLimitations,
-                (b, context) => InvokePipeline(b, context),
+                InvokePipeline,
                 InvokeError);
 
             if (settings.InstanceSpecificQueue() != null)
@@ -132,7 +131,7 @@ namespace NServiceBus
                     builder,
                     sharedReceiverPushSettings,
                     dequeueLimitations,
-                    (b, context) => InvokePipeline(b, context),
+                    InvokePipeline,
                     InvokeError);
             }
         }

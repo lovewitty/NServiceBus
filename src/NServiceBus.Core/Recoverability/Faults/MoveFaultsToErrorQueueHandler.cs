@@ -5,6 +5,7 @@
     using System.Threading.Tasks;
     using Logging;
     using Pipeline;
+    using Transports;
 
     class MoveFaultsToErrorQueueHandler
     {
@@ -47,7 +48,7 @@
 
                 failureInfoStorage.ClearFailureInfoForMessage(message.MessageId);
 
-                await moveToErrorsExecutor.MoveToErrorQueue(message, exception, context.Extensions).ConfigureAwait(false);
+                await moveToErrorsExecutor.MoveToErrorQueue(message, exception, context.Extensions.Get<TransportTransaction>()).ConfigureAwait(false);
 
                 await context.RaiseNotification(new MessageFaulted(message, exception)).ConfigureAwait(false);
             }

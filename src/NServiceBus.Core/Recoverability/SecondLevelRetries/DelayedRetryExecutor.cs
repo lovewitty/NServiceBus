@@ -18,7 +18,7 @@
             this.endpointInputQueue = endpointInputQueue;
         }
 
-        public Task Retry(IncomingMessage message, TimeSpan delay, int currentRetryAttempt, ContextBag dispatchContext)
+        public Task Retry(IncomingMessage message, TimeSpan delay, int currentRetryAttempt, TransportTransaction transportTransaction)
         {
             //TODO: this needs to be removed
             message.RevertToOriginalBodyIfNeeded();
@@ -48,6 +48,10 @@
             }
 
             var transportOperations = new TransportOperations(new TransportOperation(outgoingMessage, messageDestination, deliveryConstraints: deliveryConstraints));
+
+            var dispatchContext = new ContextBag();
+            dispatchContext.Set(transportTransaction);
+
             return dispatcher.Dispatch(transportOperations, dispatchContext);
         }
 
